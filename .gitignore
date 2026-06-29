@@ -44,3 +44,15 @@ Desktop.ini
 # Trellis local runtime
 .trellis/.developer
 .trellis/.runtime/
+
+# Local app data
+/data/
+*.db
+*.sqlite
+*.sqlite3
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/

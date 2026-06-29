@@ -1,51 +1,30 @@
 # Logging Guidelines
 
-> How logging is done in this project.
-
----
-
 ## Overview
 
-<!--
-Document your project's logging conventions here.
-
-Questions to answer:
-- What logging library do you use?
-- What are the log levels and when to use each?
-- What should be logged?
-- What should NOT be logged (PII, secrets)?
--->
-
-(To be filled by the team)
-
----
+The backend currently uses the standard Python `logging` module. Logging is minimal and should support operational diagnosis without leaking secrets.
 
 ## Log Levels
 
-<!-- When to use each level: debug, info, warn, error -->
-
-(To be filled by the team)
-
----
+- `debug`: detailed development-only diagnostics, especially around parser or API response shape checks.
+- `info`: successful lifecycle events only when they help operations, such as scheduler startup or job replacement.
+- `warning`: recoverable external-boundary problems where the user-visible status is also persisted.
+- `error` / `exception`: unexpected failures, especially scheduled refresh failures that escape normal refresh status handling.
 
 ## Structured Logging
 
-<!-- Log format, required fields -->
+There is no structured logging framework yet. Keep messages stable and include useful identifiers such as refresh run id, `since`, and language when available. Do not add broad print statements.
 
-(To be filled by the team)
+## What To Log
 
----
+- Scheduled refresh exceptions with stack trace via `logger.exception`.
+- Parser/fetch failures when the failure is not already obvious from the persisted refresh run.
+- LLM request failures at the boundary, without request headers or API keys.
+- Scheduler job replacement decisions when debugging scheduling behavior.
 
-## What to Log
+## What Not To Log
 
-<!-- Important events to log -->
-
-(To be filled by the team)
-
----
-
-## What NOT to Log
-
-<!-- Sensitive data, PII, secrets -->
-
-(To be filled by the team)
+- `llm_api_key` or Authorization headers.
+- Full LLM prompts or full LLM responses by default; they can contain user-provided instructions and repository text.
+- Full GitHub HTML pages.
+- SQLite database URLs if they could include credentials in a future non-SQLite configuration.

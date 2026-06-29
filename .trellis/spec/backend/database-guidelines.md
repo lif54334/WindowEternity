@@ -1,51 +1,26 @@
 # Database Guidelines
 
-> Database patterns and conventions for this project.
-
----
-
 ## Overview
 
-<!--
-Document your project's database conventions here.
-
-Questions to answer:
-- What ORM/query library do you use?
-- How are migrations managed?
-- What are the naming conventions for tables/columns?
-- How do you handle transactions?
--->
-
-(To be filled by the team)
-
----
+The backend uses SQLAlchemy ORM with SQLite for the MVP. Schema initialization is centralized in `backend/app/db.py` with `Base.metadata.create_all`. Add migrations only when schema evolution becomes necessary beyond local MVP development.
 
 ## Query Patterns
 
-<!-- How should queries be written? Batch operations? -->
+- Use `Session` injected by `get_db` for API requests.
+- Use `SessionLocal` for scheduler jobs and background orchestration.
+- Commit after coherent state changes: settings update, refresh run completion, or per-repository LLM analysis persistence.
+- Keep repository upsert logic in `services/refresh.py`; routes must not modify ORM rows directly.
 
-(To be filled by the team)
+## Schema Contracts
 
----
-
-## Migrations
-
-<!-- How to create and run migrations -->
-
-(To be filled by the team)
-
----
-
-## Naming Conventions
-
-<!-- Table names, column names, index names -->
-
-(To be filled by the team)
-
----
+- `settings` is a singleton row with id `1` and owns user configuration: `auto_refresh_enabled`, compatibility `refresh_interval_minutes`, cron-style `refresh_time_of_day` (`HH:MM`), default filters, `max_repositories_per_refresh`, `font_size_percent`, LLM endpoint/model/timeout/API key, and `llm_custom_prompt`.
+- `repositories` is unique by `(owner, name)` and stores latest visible metadata plus nullable detail-page enrichment fields (`detail_description`, `topics`, `readme_excerpt`).
+- `refresh_runs` records every refresh attempt and owns user-visible status plus the batch AI summary (`ai_summary_status`, `ai_summary`, `ai_summary_error`). It is also the source for refresh/analysis history UI records ordered by newest run id.
+- `analysis_results` is append-only per run/repository so each refresh can re-analyze all current repositories; per-repository rows come from the batch LLM response, while the overall summary belongs to `refresh_runs`.
 
 ## Common Mistakes
 
-<!-- Database-related mistakes your team has made -->
-
-(To be filled by the team)
+- Do not derive SQLite paths with Windows backslashes inside the SQLAlchemy URL. Use POSIX formatting: `sqlite:///{path.as_posix()}`.
+- Do not return raw API keys from settings queries.
+- Do not schedule auto refresh from `refresh_interval_minutes`; use `refresh_time_of_day` and keep the interval field only for compatibility until it is removed by an explicit migration.
+- Do not treat an empty GitHub parse as a successful empty refresh; that usually means the external HTML contract changed.

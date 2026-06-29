@@ -1,51 +1,74 @@
 # Type Safety
 
-> Type safety patterns in this project.
-
----
-
 ## Overview
 
-<!--
-Document your project's type safety conventions here.
-
-Questions to answer:
-- What type system do you use?
-- How are types organized?
-- What validation library do you use?
-- How do you handle type inference?
--->
-
-(To be filled by the team)
-
----
+The frontend is a React + Vite + TypeScript app. API payload types are centralized in `frontend/src/api/client.ts` and page components consume those exported types.
 
 ## Type Organization
 
-<!-- Where types are defined, shared types vs local types -->
-
-(To be filled by the team)
-
----
+- Shared API DTOs live in `src/api/client.ts`.
+- Page-local route prop types can stay in the page file when they are not reused across modules.
+- `SinceValue` is the frontend representation of the backend `daily | weekly | monthly` contract.
 
 ## Validation
 
-<!-- Runtime validation patterns (Zod, Yup, io-ts, etc.) -->
+Runtime validation is currently performed by the backend Pydantic schemas. The frontend should still normalize blank optional fields before sending settings or refresh requests.
 
-(To be filled by the team)
+## Scenario: API Client Contract
 
----
+### 1. Scope / Trigger
 
-## Common Patterns
+- Trigger: any new backend API response consumed by React.
 
-<!-- Type utilities, generics, type guards -->
+### 2. Signatures
 
-(To be filled by the team)
+- Add one exported TypeScript interface per backend response/request body.
+- Add one client function per endpoint.
 
----
+### 3. Contracts
+
+- Settings responses expose `has_llm_api_key`, never `llm_api_key`.
+- Settings DTOs include `refresh_time_of_day`, `font_size_percent`, and `llm_custom_prompt`; page code must consume them through `SettingsResponse` / `SettingsUpdate`.
+- Trending responses expose enriched repository fields (`detail_description`, `topics`, `readme_excerpt`) and full-list AI summary fields on `latest_run` (`ai_summary_status`, `ai_summary`, `ai_summary_error`).
+- Refresh history uses `RefreshHistoryResponse` from `getRefreshHistory`; components must not fetch `/api/trending/history` directly.
+- Refresh and analyze calls send blank language as `null`.
+- Page components should not cast raw JSON payload fields inline.
+
+### 4. Validation & Error Matrix
+
+- Non-2xx response -> `ApiError(status, message)`.
+- JSON error body with string `detail` -> use that message.
+- Non-JSON error body -> use default status message.
+
+### 5. Good/Base/Bad Cases
+
+- Good: component calls `refreshTrending(since, language)` and renders typed `TrendingResponse`, including per-repository enrichment and `latest_run.ai_summary`.
+- Base: component handles empty `repositories` array.
+- Bad: component does `fetch('/api/trending')` and casts response locally.
+
+### 6. Tests Required
+
+- `npm.cmd run build` must pass TypeScript checking.
+- UI checks should confirm font size changes apply through the root CSS variable and history records render from typed API data.
+- UI smoke should confirm `/`, `/github-trending`, and `/github-trending/settings` render after Vite build is served by FastAPI.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```typescript
+const data = await fetch('/api/settings').then((r) => r.json()) as any;
+```
+
+#### Correct
+
+```typescript
+const settings = await getSettings();
+```
 
 ## Forbidden Patterns
 
-<!-- any, type assertions, etc. -->
-
-(To be filled by the team)
+- Do not use `any` for API payloads.
+- Do not duplicate backend response field names in page-local ad hoc types.
+- Do not store or display the raw LLM API key after save.
+- Do not duplicate refresh history or settings DTO fields inside page-local types.

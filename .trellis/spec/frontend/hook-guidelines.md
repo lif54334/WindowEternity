@@ -1,51 +1,30 @@
 # Hook Guidelines
 
-> How hooks are used in this project.
-
----
-
 ## Overview
 
-<!--
-Document your project's hook conventions here.
-
-Questions to answer:
-- What custom hooks do you have?
-- How do you handle data fetching?
-- What are the naming conventions?
-- How do you share stateful logic?
--->
-
-(To be filled by the team)
-
----
+The current frontend uses React built-in hooks only. There are no shared custom hooks or server-state libraries yet.
 
 ## Custom Hook Patterns
 
-<!-- How to create and structure custom hooks -->
-
-(To be filled by the team)
-
----
+- Do not introduce a custom hook for one-off page logic.
+- Create a custom hook only when stateful behavior is reused by at least two components or when a page component becomes hard to audit.
+- Custom hooks must use the `use*` naming convention and return typed values/actions.
 
 ## Data Fetching
 
-<!-- How data fetching is handled (React Query, SWR, etc.) -->
-
-(To be filled by the team)
-
----
+- Page components call typed client functions from `src/api/client.ts` inside `useEffect` and async event handlers.
+- Keep `loading`, `busyAction`, `message`, and `error` state page-local unless multiple pages need the same state.
+- Use `Promise.all` when the dashboard needs trending data, stats, and history together.
+- Convert `ApiError` into user-visible messages at the page boundary.
 
 ## Naming Conventions
 
-<!-- Hook naming rules (use*, etc.) -->
-
-(To be filled by the team)
-
----
+- Use `load*` for initial/reload fetch flows, e.g. `loadData` and `loadSettings`.
+- Use `handle*` for event handlers, e.g. `handleRefresh`, `handleAnalyze`, and `handleSubmit`.
+- Use `busyAction`-style discriminated state when one page can run multiple mutually exclusive async actions.
 
 ## Common Mistakes
 
-<!-- Hook-related mistakes your team has made -->
-
-(To be filled by the team)
+- Do not add React Query/SWR without a clear cross-page caching need.
+- Do not leave async errors only in the console; show them in page `error` state.
+- Do not update server-derived state in multiple separate local shapes when one API response already contains the needed fields.
