@@ -14,9 +14,10 @@ router = APIRouter(prefix="/api/trending", tags=["github-trending"])
 def read_trending(
     since: str | None = Query(default=None, pattern="^(daily|weekly|monthly)$"),
     language: str | None = None,
+    run_id: int | None = Query(default=None, ge=1),
     db: Session = Depends(get_db),
 ) -> TrendingResponse:
-    return get_trending_response(db, since=since, language=language)
+    return get_trending_response(db, since=since, language=language, run_id=run_id)
 
 
 @router.post("/refresh", response_model=TrendingResponse)
@@ -38,6 +39,7 @@ def history(limit: int = Query(default=20, ge=1, le=100), db: Session = Depends(
 def stats(
     since: str | None = Query(default=None, pattern="^(daily|weekly|monthly)$"),
     language: str | None = None,
+    run_id: int | None = Query(default=None, ge=1),
     db: Session = Depends(get_db),
 ) -> TrendingStatsResponse:
-    return get_stats(db, since=since, language=language)
+    return get_stats(db, since=since, language=language, run_id=run_id)

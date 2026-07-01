@@ -19,6 +19,7 @@ backend/
       health.py
       settings.py
       trending.py
+      market_prices.py       # Gold/silver market quote route
     core/
       config.py              # Environment keys, data paths, constants
     services/                # Business logic and external integration boundaries
@@ -26,6 +27,7 @@ backend/
       trending.py            # GitHub HTML fetch/parse boundary
       llm.py                 # OpenAI-compatible Chat Completions boundary
       refresh.py             # Refresh orchestration and persistence
+      market_prices.py       # Gold/silver quote and CNY conversion boundary
 ```
 
 ## Scenario: GitHub Trending Module Backend Slice
@@ -40,10 +42,10 @@ backend/
 - `GET /api/health`
 - `GET /api/settings`
 - `PUT /api/settings`
-- `GET /api/trending?since=daily|weekly|monthly&language=<optional>`
+- `GET /api/trending?since=daily|weekly|monthly&language=<optional>&run_id=<optional>`
 - `POST /api/trending/refresh`
 - `POST /api/trending/analyze`
-- `GET /api/trending/stats`
+- `GET /api/trending/stats?since=daily|weekly|monthly&language=<optional>&run_id=<optional>`
 - `GET /api/trending/history?limit=<1..100>`
 
 SQLite tables:
@@ -70,6 +72,8 @@ Response contract rules:
 - Trending repository payloads must use Pydantic schemas from `schemas.py`.
 - Frontend-facing errors must be visible in `refresh_runs.error_message`, `refresh_runs.ai_summary_error`, or `analysis_results.error_message`.
 - Refresh history responses return recent `RefreshRunResponse` records ordered newest first and are owned by `services/refresh.py`.
+- Historical run viewing uses `run_id` on `/api/trending` and `/api/trending/stats`; when `run_id` is present it takes precedence over `since` and `language` filters.
+- Trending stats responses expose repository count and `language_distribution`; category distribution and top-repository rankings are not part of the frontend-facing stats contract.
 
 ### 4. Validation & Error Matrix
 
@@ -93,6 +97,7 @@ Response contract rules:
 - Smoke: `GET /api/health` returns 200.
 - Smoke: `GET /api/settings` initializes SQLite and returns `default_since=daily`, `max_repositories_per_refresh=25`, `refresh_time_of_day=09:00`, and `font_size_percent=100`.
 - Smoke: `GET /api/trending/history` returns a `runs` array without exposing repository HTML parsing details.
+- Smoke: `GET /api/trending?run_id=<id>` and `GET /api/trending/stats?run_id=<id>` return the selected historical run data when the run exists.
 - Parser test should use stored sample HTML before selector changes.
 - Refresh tests should assert that raw repository data remains visible when LLM calls fail.
 
@@ -112,6 +117,63 @@ article.select_one("h2 a")
 parsed_repos = parse_trending_html(html, limit=settings.max_repositories_per_refresh)
 ```
 
+
+## Scenario: Market Prices Module Backend Slice
+
+### 1. Scope / Trigger
+
+- Trigger: cross-layer module that fetches external gold/silver quotes and displays CNY-converted prices in React.
+
+### 2. Signatures
+
+- `GET /api/market-prices`
+
+Response schemas:
+
+- `MarketPricesResponse`
+- `MetalPriceResponse`
+
+### 3. Contracts
+
+- `services/market_prices.py` is the only owner of external quote and exchange-rate calls.
+- Metal quotes use Gold API symbols `XAU` and `XAG`, returned in USD per troy ounce.
+- USD/CNY uses `open.er-api.com/v6/latest/USD` and `rates.CNY`.
+- The API returns `price_usd_per_ounce`, `usd_cny_rate`, `price_cny_per_ounce`, `price_cny_per_gram`, source timestamps, and backend `fetched_at`.
+- The module does not persist quote snapshots in SQLite in this slice.
+
+### 4. Validation & Error Matrix
+
+- Metal quote HTTP/JSON failure -> HTTP 502 with visible `detail`.
+- Missing or non-positive metal price -> HTTP 502 with visible `detail`.
+- Missing or non-positive USD/CNY rate -> HTTP 502 with visible `detail`.
+- Source currency other than USD for metal quotes -> HTTP 502 with visible `detail`.
+
+### 5. Good/Base/Bad Cases
+
+- Good: both metals and USD/CNY return valid data; UI shows CNY per troy ounce and CNY per gram.
+- Base: one source timestamp is missing; response still includes backend `fetched_at`.
+- Bad: quote provider blocks or changes payload; route returns 502 instead of fake/stale prices.
+
+### 6. Tests Required
+
+- Compile/import check: `python -m compileall backend/app`.
+- Network smoke when allowed: `GET /api/market-prices` returns two prices with positive `price_cny_per_gram`.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```typescript
+// Component bypasses the backend source boundary.
+fetch('https://api.gold-api.com/price/XAU')
+```
+
+#### Correct
+
+```typescript
+const prices = await getMarketPrices();
+```
+
 ## Module Organization
 
 - Route modules are thin: dependency injection, request schemas, service calls, response schemas.
@@ -119,6 +181,7 @@ parsed_repos = parse_trending_html(html, limit=settings.max_repositories_per_ref
 - `refresh.py` owns the complete refresh transaction and status semantics.
 - `trending.py` is the only owner of GitHub Trending and repository detail-page HTML selectors.
 - `llm.py` is the only owner of OpenAI-compatible request formatting, including the batch prompt that analyzes a full refreshed repository set in one request.
+- `market_prices.py` is the only owner of gold/silver quote fetches and CNY conversion.
 
 ## Naming Conventions
 

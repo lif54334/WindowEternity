@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from pathlib import Path
 
@@ -8,6 +8,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.api.health import router as health_router
+from app.api.market_prices import router as market_prices_router
 from app.api.settings import router as settings_router
 from app.api.trending import router as trending_router
 from app.core.config import FRONTEND_DIST
@@ -27,6 +28,7 @@ def create_app() -> FastAPI:
     app.include_router(health_router)
     app.include_router(settings_router)
     app.include_router(trending_router)
+    app.include_router(market_prices_router)
 
     @app.on_event("startup")
     def on_startup() -> None:
@@ -63,3 +65,4 @@ def _mount_frontend(app: FastAPI, dist_dir: Path) -> None:
 
 
 app = create_app()
+

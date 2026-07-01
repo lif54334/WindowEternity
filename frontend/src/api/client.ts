@@ -75,18 +75,32 @@ export interface LanguageStat {
   count: number;
 }
 
-export interface CategoryStat {
-  category: string;
-  count: number;
-}
 
 export interface TrendingStatsResponse {
   repository_count: number;
   language_distribution: LanguageStat[];
-  top_repositories: RepositoryResponse[];
-  category_distribution: CategoryStat[];
 }
 
+export interface MetalPriceResponse {
+  metal: "gold" | "silver";
+  display_name: string;
+  source_symbol: string;
+  source_name: string;
+  price_usd_per_ounce: number;
+  usd_cny_rate: number;
+  price_cny_per_ounce: number;
+  price_cny_per_gram: number;
+  quote_time: string | null;
+  fetched_at: string;
+}
+
+export interface MarketPricesResponse {
+  prices: MetalPriceResponse[];
+  exchange_rate_symbol: string;
+  exchange_rate: number;
+  exchange_rate_time: string | null;
+  fetched_at: string;
+}
 export class ApiError extends Error {
   status: number;
 
@@ -98,6 +112,9 @@ export class ApiError extends Error {
 
 const jsonHeaders = { "Content-Type": "application/json" };
 
+export async function getMarketPrices(): Promise<MarketPricesResponse> {
+  return request<MarketPricesResponse>("/api/market-prices");
+}
 export async function getSettings(): Promise<SettingsResponse> {
   return request<SettingsResponse>("/api/settings");
 }
@@ -110,8 +127,8 @@ export async function saveSettings(payload: SettingsUpdate): Promise<SettingsRes
   });
 }
 
-export async function getTrending(since?: SinceValue, language?: string): Promise<TrendingResponse> {
-  const params = trendingParams(since, language);
+export async function getTrending(since?: SinceValue, language?: string, runId?: number): Promise<TrendingResponse> {
+  const params = trendingParams(since, language, runId);
   const query = params.toString();
   return request<TrendingResponse>(`/api/trending${query ? `?${query}` : ""}`);
 }
@@ -132,8 +149,8 @@ export async function analyzeTrending(since?: SinceValue, language?: string): Pr
   });
 }
 
-export async function getTrendingStats(since?: SinceValue, language?: string): Promise<TrendingStatsResponse> {
-  const params = trendingParams(since, language);
+export async function getTrendingStats(since?: SinceValue, language?: string, runId?: number): Promise<TrendingStatsResponse> {
+  const params = trendingParams(since, language, runId);
   const query = params.toString();
   return request<TrendingStatsResponse>(`/api/trending/stats${query ? `?${query}` : ""}`);
 }
@@ -143,10 +160,11 @@ export async function getRefreshHistory(limit = 20): Promise<RefreshHistoryRespo
   return request<RefreshHistoryResponse>(`/api/trending/history?${params.toString()}`);
 }
 
-function trendingParams(since?: SinceValue, language?: string): URLSearchParams {
+function trendingParams(since?: SinceValue, language?: string, runId?: number): URLSearchParams {
   const params = new URLSearchParams();
   if (since) params.set("since", since);
   if (language?.trim()) params.set("language", language.trim());
+  if (runId) params.set("run_id", String(runId));
   return params;
 }
 

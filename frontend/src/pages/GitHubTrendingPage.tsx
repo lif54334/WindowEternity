@@ -31,6 +31,7 @@ export default function GitHubTrendingPage({ onNavigate }: GitHubTrendingPagePro
   const [trending, setTrending] = useState<TrendingResponse | null>(null);
   const [stats, setStats] = useState<TrendingStatsResponse | null>(null);
   const [history, setHistory] = useState<RefreshRunResponse[]>([]);
+  const [selectedRunId, setSelectedRunId] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [busyAction, setBusyAction] = useState<"refresh" | "analyze" | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -45,13 +46,13 @@ export default function GitHubTrendingPage({ onNavigate }: GitHubTrendingPagePro
 
   const languageLabel = useMemo(() => language.trim() || "All languages", [language]);
 
-  async function loadData(nextSince = since, nextLanguage = language) {
+  async function loadData(nextSince = since, nextLanguage = language, nextRunId = selectedRunId) {
     setLoading(true);
     setError(null);
     try {
       const [trendingData, statsData, historyData] = await Promise.all([
-        getTrending(nextSince, nextLanguage),
-        getTrendingStats(nextSince, nextLanguage),
+        getTrending(nextSince, nextLanguage, nextRunId ?? undefined),
+        getTrendingStats(nextSince, nextLanguage, nextRunId ?? undefined),
         getRefreshHistory(),
       ]);
       setTrending(trendingData);
@@ -70,13 +71,24 @@ export default function GitHubTrendingPage({ onNavigate }: GitHubTrendingPagePro
   }
 
   async function handleApplyFilters() {
-    await loadData(since, language);
+    setSelectedRunId(null);
+    await loadData(since, language, null);
+  }
+
+  async function handleHistorySelect(run: RefreshRunResponse) {
+    const runSince = isSinceValue(run.since) ? run.since : since;
+    const runLanguage = run.language ?? "";
+    setSelectedRunId(run.id);
+    setSince(runSince);
+    setLanguage(runLanguage);
+    await loadData(runSince, runLanguage, run.id);
   }
 
   async function handleRefresh() {
     setBusyAction("refresh");
     setError(null);
     try {
+      setSelectedRunId(null);
       const data = await refreshTrending(since, language);
       setTrending(data);
       setStats(await getTrendingStats(since, language));
@@ -92,6 +104,7 @@ export default function GitHubTrendingPage({ onNavigate }: GitHubTrendingPagePro
     setBusyAction("analyze");
     setError(null);
     try {
+      setSelectedRunId(null);
       const data = await analyzeTrending(since, language);
       setTrending(data);
       setStats(await getTrendingStats(since, language));
@@ -105,7 +118,7 @@ export default function GitHubTrendingPage({ onNavigate }: GitHubTrendingPagePro
 
   return (
     <section className={`trending-workspace ${showHistory ? "with-history" : "no-history"}`}>
-      {showHistory && <HistoryRail runs={history} activeRunId={latestRun?.id ?? null} />}
+      {showHistory && <HistoryRail runs={history} activeRunId={latestRun?.id ?? null} onSelect={handleHistorySelect} />}
 
       <div className="page-stack">
         <header className="page-header">
@@ -180,8 +193,6 @@ export default function GitHubTrendingPage({ onNavigate }: GitHubTrendingPagePro
             <h2>统计分析</h2>
             <h3>语言分布</h3>
             <StatBars data={stats?.language_distribution.map((item) => ({ label: item.language, count: item.count })) ?? []} />
-            <h3>分析类别</h3>
-            <StatBars data={stats?.category_distribution.map((item) => ({ label: item.category, count: item.count })) ?? []} />
           </aside>
         </section>
       </div>
@@ -200,7 +211,15 @@ export default function GitHubTrendingPage({ onNavigate }: GitHubTrendingPagePro
   );
 }
 
-function HistoryRail({ runs, activeRunId }: { runs: RefreshRunResponse[]; activeRunId: number | null }) {
+function HistoryRail({
+  runs,
+  activeRunId,
+  onSelect,
+}: {
+  runs: RefreshRunResponse[];
+  activeRunId: number | null;
+  onSelect: (run: RefreshRunResponse) => void;
+}) {
   return (
     <aside className="history-rail" aria-label="Refresh history">
       <div className="history-rail-head">
@@ -209,16 +228,22 @@ function HistoryRail({ runs, activeRunId }: { runs: RefreshRunResponse[]; active
       </div>
       <div className="history-list">
         {runs.map((run) => (
-          <article className={`history-item ${run.id === activeRunId ? "active" : ""}`} key={run.id}>
+          <button
+            type="button"
+            className={"history-item " + (run.id === activeRunId ? "active" : "")}
+            key={run.id}
+            onClick={() => onSelect(run)}
+            aria-current={run.id === activeRunId ? "true" : undefined}
+          >
             <div className="history-item-top">
               <strong>#{run.id}</strong>
-              <span className={`analysis-badge ${run.ai_summary_status ?? run.status}`}>{run.ai_summary_status ?? run.status}</span>
+              <span className={"analysis-badge " + (run.ai_summary_status ?? run.status)}>{run.ai_summary_status ?? run.status}</span>
             </div>
             <div className="history-time">{formatDateTime(run.finished_at ?? run.started_at)}</div>
             <div className="history-meta">{run.since} / {run.language || "All languages"}</div>
             {run.ai_summary && <p>{run.ai_summary}</p>}
             {run.error_message && <p className="history-error">{run.error_message}</p>}
-          </article>
+          </button>
         ))}
       </div>
     </aside>
@@ -297,11 +322,28 @@ function formatNumber(value: number | null): string {
   return value == null ? "-" : value.toLocaleString();
 }
 
+const eastEightDateTimeFormatter = new Intl.DateTimeFormat("zh-CN", {
+  timeZone: "Asia/Shanghai",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+  hour12: false,
+});
+
 function formatDateTime(value: string | null | undefined): string {
   if (!value) return "-";
-  const date = new Date(value);
+  const trimmed = value.trim();
+  const hasTimeZone = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(trimmed);
+  const date = new Date(hasTimeZone ? trimmed : trimmed + "Z");
   if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleString();
+  return eastEightDateTimeFormatter.format(date);
+}
+
+function isSinceValue(value: string): value is SinceValue {
+  return value === "daily" || value === "weekly" || value === "monthly";
 }
 
 function errorMessage(err: unknown): string {

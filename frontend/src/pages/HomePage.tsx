@@ -1,4 +1,4 @@
-﻿type Route = "/" | "/github-trending" | "/github-trending/settings";
+type Route = "/" | "/github-trending" | "/github-trending/settings" | "/market-prices";
 
 interface HomePageProps {
   onNavigate: (route: Route) => void;
@@ -35,6 +35,23 @@ export default function HomePage({ onNavigate }: HomePageProps) {
           <div className="button-row">
             <button className="primary" onClick={() => onNavigate("/github-trending")}>打开模块</button>
             <button onClick={() => onNavigate("/github-trending/settings")}>配置</button>
+          </div>
+        </article>
+
+        <article className="module-card">
+          <div className="module-card-head">
+            <span className="module-icon market">AU</span>
+            <span className="pill">Live</span>
+          </div>
+          <h2>国际金银行情</h2>
+          <p>抓取国际黄金、国际白银的当前报价，按 USD/CNY 换算为人民币单位，并支持手动刷新。</p>
+          <dl className="module-facts">
+            <div><dt>品种</dt><dd>黄金 / 白银</dd></div>
+            <div><dt>单位</dt><dd>人民币/盎司 + 人民币/克</dd></div>
+            <div><dt>汇率</dt><dd>USD/CNY 实时换算</dd></div>
+          </dl>
+          <div className="button-row">
+            <button className="primary" onClick={() => onNavigate("/market-prices")}>打开模块</button>
           </div>
         </article>
       </section>

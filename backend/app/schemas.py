@@ -121,17 +121,32 @@ class LanguageStat(BaseModel):
     count: int
 
 
-class CategoryStat(BaseModel):
-    category: str
-    count: int
 
 
 class TrendingStatsResponse(BaseModel):
     repository_count: int
     language_distribution: list[LanguageStat]
-    top_repositories: list[RepositoryResponse]
-    category_distribution: list[CategoryStat]
 
+
+class MetalPriceResponse(BaseModel):
+    metal: Literal["gold", "silver"]
+    display_name: str
+    source_symbol: str
+    source_name: str
+    price_usd_per_ounce: float
+    usd_cny_rate: float
+    price_cny_per_ounce: float
+    price_cny_per_gram: float
+    quote_time: datetime | None = None
+    fetched_at: datetime
+
+
+class MarketPricesResponse(BaseModel):
+    prices: list[MetalPriceResponse]
+    exchange_rate_symbol: str
+    exchange_rate: float
+    exchange_rate_time: datetime | None = None
+    fetched_at: datetime
 
 class ErrorResponse(BaseModel):
     detail: str

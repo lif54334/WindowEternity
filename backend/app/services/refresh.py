@@ -10,7 +10,6 @@ from sqlalchemy.orm import Session
 from app.models import AnalysisResult, RefreshRun, Repository
 from app.schemas import (
     AnalysisResponse,
-    CategoryStat,
     LanguageStat,
     RefreshHistoryResponse,
     RefreshRunResponse,
@@ -67,9 +66,11 @@ def analyze_latest(db: Session, since: str | None = None, language: str | None =
     return get_trending_response(db, since, language)
 
 
-def get_trending_response(db: Session, since: str | None = None, language: str | None = None) -> TrendingResponse:
+def get_trending_response(
+    db: Session, since: str | None = None, language: str | None = None, run_id: int | None = None
+) -> TrendingResponse:
     settings = get_or_create_settings(db)
-    run = _latest_run(db, since, language)
+    run = db.get(RefreshRun, run_id) if run_id is not None else _latest_run(db, since, language)
     repositories = _repositories_for_run(db, run.id) if run else []
     return TrendingResponse(
         repositories=[_repository_response(db, repo, run.id if run else None) for repo in repositories],
@@ -83,21 +84,15 @@ def get_refresh_history(db: Session, limit: int = 20) -> RefreshHistoryResponse:
     return RefreshHistoryResponse(runs=[_run_response(run) for run in runs])
 
 
-def get_stats(db: Session, since: str | None = None, language: str | None = None) -> TrendingStatsResponse:
-    run = _latest_run(db, since, language)
+def get_stats(
+    db: Session, since: str | None = None, language: str | None = None, run_id: int | None = None
+) -> TrendingStatsResponse:
+    run = db.get(RefreshRun, run_id) if run_id is not None else _latest_run(db, since, language)
     repositories = _repositories_for_run(db, run.id) if run else []
     language_counts = Counter(repo.language or "Unknown" for repo in repositories)
-    category_counts: Counter[str] = Counter()
-    for repo in repositories:
-        analysis = _latest_analysis(db, repo.id, run.id if run else None)
-        if analysis and analysis.category:
-            category_counts[analysis.category] += 1
-    top_repositories = sorted(repositories, key=lambda repo: repo.stars or 0, reverse=True)[:5]
     return TrendingStatsResponse(
         repository_count=len(repositories),
         language_distribution=[LanguageStat(language=key, count=value) for key, value in language_counts.most_common()],
-        top_repositories=[_repository_response(db, repo, run.id if run else None) for repo in top_repositories],
-        category_distribution=[CategoryStat(category=key, count=value) for key, value in category_counts.most_common()],
     )
 
 
@@ -201,6 +196,17 @@ def _latest_run(db: Session, since: str | None = None, language: str | None = No
 
 
 def _repositories_for_run(db: Session, run_id: int) -> list[Repository]:
+    repositories = list(
+        db.scalars(
+            select(Repository)
+            .join(AnalysisResult, AnalysisResult.repository_id == Repository.id)
+            .where(AnalysisResult.run_id == run_id)
+            .distinct()
+            .order_by(Repository.rank)
+        )
+    )
+    if repositories:
+        return repositories
     return list(db.scalars(select(Repository).where(Repository.last_seen_run_id == run_id).order_by(Repository.rank)))
 
 

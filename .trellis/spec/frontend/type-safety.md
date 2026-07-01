@@ -31,8 +31,10 @@ Runtime validation is currently performed by the backend Pydantic schemas. The f
 - Settings DTOs include `refresh_time_of_day`, `font_size_percent`, and `llm_custom_prompt`; page code must consume them through `SettingsResponse` / `SettingsUpdate`.
 - Trending responses expose enriched repository fields (`detail_description`, `topics`, `readme_excerpt`) and full-list AI summary fields on `latest_run` (`ai_summary_status`, `ai_summary`, `ai_summary_error`).
 - Refresh history uses `RefreshHistoryResponse` from `getRefreshHistory`; components must not fetch `/api/trending/history` directly.
+- Historical run viewing passes `run_id` through the typed `getTrending` and `getTrendingStats` client functions instead of assembling query strings in page components.
 - Refresh and analyze calls send blank language as `null`.
 - Page components should not cast raw JSON payload fields inline.
+- Market price responses use `MarketPricesResponse` / `MetalPriceResponse` from `getMarketPrices()`; components must not call external quote providers or `/api/market-prices` directly.
 
 ### 4. Validation & Error Matrix
 
@@ -49,8 +51,8 @@ Runtime validation is currently performed by the backend Pydantic schemas. The f
 ### 6. Tests Required
 
 - `npm.cmd run build` must pass TypeScript checking.
-- UI checks should confirm font size changes apply through the root CSS variable and history records render from typed API data.
-- UI smoke should confirm `/`, `/github-trending`, and `/github-trending/settings` render after Vite build is served by FastAPI.
+- UI checks should confirm font size changes apply through the root CSS variable, history records render from typed API data, historical run clicks load via `run_id`, stats render language distribution without category or ranking distributions, and `/market-prices` renders typed gold/silver price cards.
+- UI smoke should confirm `/`, `/github-trending`, `/github-trending/settings`, and `/market-prices` render after Vite build is served by FastAPI.
 
 ### 7. Wrong vs Correct
 
@@ -72,3 +74,4 @@ const settings = await getSettings();
 - Do not duplicate backend response field names in page-local ad hoc types.
 - Do not store or display the raw LLM API key after save.
 - Do not duplicate refresh history or settings DTO fields inside page-local types.
+- Do not reintroduce `category_distribution` or `top_repositories` into `TrendingStatsResponse` unless the backend API contract is intentionally changed again.

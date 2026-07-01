@@ -2,11 +2,12 @@ import { useEffect, useState } from "react";
 import { getSettings } from "./api/client";
 import HomePage from "./pages/HomePage";
 import GitHubTrendingPage from "./pages/GitHubTrendingPage";
+import MarketPricesPage from "./pages/MarketPricesPage";
 import SettingsPage from "./pages/SettingsPage";
 
-type Route = "/" | "/github-trending" | "/github-trending/settings";
+type Route = "/" | "/github-trending" | "/github-trending/settings" | "/market-prices";
 
-const routes: Route[] = ["/", "/github-trending", "/github-trending/settings"];
+const routes: Route[] = ["/", "/github-trending", "/github-trending/settings", "/market-prices"];
 
 function normalizeRoute(pathname: string): Route {
   return routes.includes(pathname as Route) ? (pathname as Route) : "/";
@@ -55,15 +56,11 @@ export default function App() {
             <small>新世界的窗口</small>
           </span>
         </button>
-        <nav className="module-tabs" aria-label="GitHub Trending navigation">
-          <button onClick={() => navigate("/")}>主页</button>
-          <button className={route === "/github-trending" ? "active" : ""} onClick={() => navigate("/github-trending")}>展示</button>
-          <button className={route === "/github-trending/settings" ? "active" : ""} onClick={() => navigate("/github-trending/settings")}>配置</button>
-        </nav>
       </header>
       <main className="feature-main">
         {route === "/github-trending" && <GitHubTrendingPage onNavigate={navigate} />}
         {route === "/github-trending/settings" && <SettingsPage onNavigate={navigate} onFontSizeChange={applyFontSize} />}
+        {route === "/market-prices" && <MarketPricesPage onNavigate={navigate} />}
       </main>
     </div>
   );

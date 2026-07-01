@@ -20,6 +20,7 @@ frontend/
     pages/
       HomePage.tsx          # standalone portal launcher
       GitHubTrendingPage.tsx# dashboard, filters, history, stats, repository cards
+      MarketPricesPage.tsx  # gold/silver CNY market price display
       SettingsPage.tsx      # scheduler, defaults, font-size, LLM settings
 ```
 
@@ -28,6 +29,7 @@ frontend/
 - `App.tsx` owns route normalization and top-level layout selection.
 - `HomePage.tsx` is standalone portal content and must not depend on the feature-shell/sidebar layout.
 - GitHub Trending feature pages live in `pages/` until the module grows enough to justify a feature folder.
+- Market price display lives in `pages/MarketPricesPage.tsx` and consumes only `getMarketPrices()` from the typed API client.
 - API contracts live only in `src/api/client.ts`; page files import DTOs and client functions from there.
 - Shared visual rules live in `src/styles.css`; do not create page-specific CSS files until repeated conflicts justify splitting.
 

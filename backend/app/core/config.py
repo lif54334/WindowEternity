@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import os
 from pathlib import Path
@@ -12,5 +12,9 @@ APP_HOST = os.getenv("WINDOW_ETERNITY_HOST", "0.0.0.0")
 APP_PORT = int(os.getenv("WINDOW_ETERNITY_PORT", "3030"))
 GITHUB_TRENDING_BASE_URL = "https://github.com/trending"
 DEFAULT_USER_AGENT = "WindowOfEternity/0.1 (+https://github.com/trending)"
+GOLD_API_PRICE_URL = "https://api.gold-api.com/price/{symbol}"
+USD_EXCHANGE_RATE_URL = "https://open.er-api.com/v6/latest/USD"
+
+
 
 
